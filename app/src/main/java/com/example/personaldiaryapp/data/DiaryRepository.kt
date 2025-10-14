@@ -20,11 +20,13 @@ class DiaryRepository(context: Context) {
 	}
 
 	fun insert(note: DiaryNote): Long = runBlocking(Dispatchers.IO) {
+		require(note.title.isNotBlank() && note.content.isNotBlank())
 		dao.insert(note.toEntity(withId = false))
 	}
 
 	fun update(note: DiaryNote): Int = runBlocking(Dispatchers.IO) {
 		val id = requireNotNull(note.id)
+		require(note.title.isNotBlank() && note.content.isNotBlank())
 		dao.update(note.toEntity(withId = true))
 		1
 	}

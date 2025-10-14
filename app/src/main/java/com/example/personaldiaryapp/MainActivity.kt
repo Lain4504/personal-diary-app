@@ -275,27 +275,36 @@ fun NoteEditorScreen(noteId: Long?, onDone: () -> Unit, onExportInternal: (Strin
 	}
 
 	Column(modifier = Modifier.padding(16.dp)) {
+		val titleError = title.isBlank()
 		OutlinedTextField(
 			value = title,
 			onValueChange = { title = it },
 			label = { Text("Title") },
+			isError = titleError,
+			supportingText = { if (titleError) Text("Title is required") },
 			modifier = Modifier.fillMaxWidth()
 		)
 		Spacer(Modifier.height(12.dp))
+		val contentError = content.isBlank()
 		OutlinedTextField(
 			value = content,
 			onValueChange = { content = it },
 			label = { Text("Content") },
+			isError = contentError,
+			supportingText = { if (contentError) Text("Content is required") },
 			modifier = Modifier.fillMaxWidth()
 		)
 		Spacer(Modifier.height(16.dp))
 		Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
 			Button(onClick = {
+				if (title.isBlank() || content.isBlank()) return@Button
+				val trimmedTitle = title.trim()
+				val trimmedContent = content.trim()
 				val id = if (noteId == null) {
 					repo.insert(
 						DiaryNote(
-							title = title,
-							content = content,
+							title = trimmedTitle,
+							content = trimmedContent,
 							createdAt = System.currentTimeMillis()
 						)
 					)
@@ -303,15 +312,15 @@ fun NoteEditorScreen(noteId: Long?, onDone: () -> Unit, onExportInternal: (Strin
 					repo.update(
 						DiaryNote(
 							id = noteId,
-							title = title,
-							content = content,
+							title = trimmedTitle,
+							content = trimmedContent,
 							createdAt = createdAt ?: System.currentTimeMillis()
 						)
 					)
 					noteId
 				}
 				onDone()
-			}) { Text("Save") }
+			}, enabled = !titleError && !contentError) { Text("Save") }
 			Button(onClick = {
 				// Export this note to internal storage as text
 				val exportTitle = if (title.isBlank()) "note" else title
