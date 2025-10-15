@@ -44,7 +44,6 @@ import com.example.personaldiaryapp.data.model.DiaryNote
 import com.example.personaldiaryapp.data.room.DiaryDatabase
 import com.example.personaldiaryapp.prefs.ThemeMode
 import com.example.personaldiaryapp.prefs.UserPreferences
-import com.example.personaldiaryapp.storage.InternalExporter
 import com.example.personaldiaryapp.ui.theme.PersonalDiaryAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -67,25 +66,23 @@ class MainActivity : ComponentActivity() {
 						modifier = Modifier.padding(innerPadding)
 					) {
 						composable("list") {
-							NotesListScreen(
-								onAdd = { navController.navigate("edit") },
-								onEdit = { id -> navController.navigate("edit/$id") },
-								onSettings = { navController.navigate("settings") },
-								onViewFile = { filename -> navController.navigate("fileView/$filename") }
-							)
+					NotesListScreen(
+						onAdd = { navController.navigate("edit") },
+						onEdit = { id -> navController.navigate("edit/$id") },
+						onSettings = { navController.navigate("settings") }
+					)
 						}
 						composable(
 							route = "edit/{id}",
 							arguments = listOf(navArgument("id") { type = NavType.LongType })
 						) { backStack ->
-							NoteEditorScreen(
-								noteId = backStack.arguments?.getLong("id"),
-								onDone = { navController.popBackStack() },
-								onExportInternal = { fileName -> navController.navigate("fileView/$fileName") }
-							)
+						NoteEditorScreen(
+							noteId = backStack.arguments?.getLong("id"),
+							onDone = { navController.popBackStack() }
+						)
 						}
 						composable("edit") {
-							NoteEditorScreen(noteId = null, onDone = { navController.popBackStack() }, onExportInternal = { file -> navController.navigate("fileView/$file") })
+						NoteEditorScreen(noteId = null, onDone = { navController.popBackStack() })
 						}
 						composable("settings") {
 							val prefsLocal = remember { prefs }
@@ -97,15 +94,7 @@ class MainActivity : ComponentActivity() {
 								onBack = { navController.popBackStack() }
 							)
 						}
-						composable(
-							route = "fileView/{filename}",
-							arguments = listOf(navArgument("filename") { type = NavType.StringType })
-						) { backStack ->
-							FileViewerScreen(
-								fileName = backStack.arguments?.getString("filename").orEmpty(),
-								onBack = { navController.popBackStack() }
-							)
-						}
+					// file viewer route removed
 					}
 				}
 			}
@@ -117,8 +106,7 @@ class MainActivity : ComponentActivity() {
 fun NotesListScreen(
 	onAdd: () -> Unit,
 	onEdit: (Long) -> Unit,
-	onSettings: () -> Unit,
-	onViewFile: (String) -> Unit
+	onSettings: () -> Unit
 ) {
 	val context = LocalContext.current
 	var notes by remember { mutableStateOf(emptyList<DiaryNote>()) }
@@ -251,13 +239,13 @@ fun NotesListScreen(
 @Composable
 fun NotesListPreview() {
 	PersonalDiaryAppTheme() {
-		NotesListScreen({}, {}, {}, {})
+		NotesListScreen({}, {}, {})
 	}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteEditorScreen(noteId: Long?, onDone: () -> Unit, onExportInternal: (String) -> Unit) {
+fun NoteEditorScreen(noteId: Long?, onDone: () -> Unit) {
 	val context = LocalContext.current
 	val repo = remember { DiaryRepository(context) }
 	var title by remember { mutableStateOf("") }
@@ -321,14 +309,6 @@ fun NoteEditorScreen(noteId: Long?, onDone: () -> Unit, onExportInternal: (Strin
 				}
 				onDone()
 			}, enabled = !titleError && !contentError) { Text("Save") }
-			Button(onClick = {
-				// Export this note to internal storage as text
-				val exportTitle = if (title.isBlank()) "note" else title
-				val safe = exportTitle.replace('[', '(').replace(']', ')').replace('/', '-')
-				val fileName = "$safe.txt"
-				InternalExporter.saveText(context, fileName, content)
-				onExportInternal(fileName)
-			}) { Text("Export Internal") }
 			if (noteId != null) {
 				Button(onClick = { repo.delete(noteId); onDone() }) { Text("Delete") }
 			}
@@ -381,18 +361,3 @@ private fun RowFontScaleSelector(current: Float, onChange: (Float) -> Unit) {
 	}
 }
 
-@Composable
-fun FileViewerScreen(fileName: String, onBack: () -> Unit) {
-	val context = LocalContext.current
-	var content by remember(fileName) { mutableStateOf("") }
-	LaunchedEffect(fileName) {
-		content = runCatching { InternalExporter.readText(context, fileName) }.getOrElse { it.message ?: "" }
-	}
-	Column(modifier = Modifier.padding(16.dp)) {
-		Text("File: $fileName")
-		Spacer(Modifier.height(12.dp))
-		Text(content)
-		Spacer(Modifier.height(24.dp))
-		Button(onClick = onBack) { Text("Back") }
-	}
-}
